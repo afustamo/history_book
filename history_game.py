@@ -8,9 +8,9 @@ from dateutil import parser
 import wikipediaapi
 import os
 import re
-import numpy as np
+# import numpy as np
 
-
+#%%
 
 # Get the current working directory
 current_directory = os.getcwd()
@@ -24,9 +24,11 @@ os.chdir(new_directory)
 updated_directory = os.getcwd()
 print(f"Updated Working Directory: {updated_directory}")
 
+#%%
 # Wikipedia API client
 wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
 
+#%%
 def read_characters():
     file_path = 'characters.csv'
     print(f"Checking file existence: {os.path.isfile(file_path)}")
@@ -43,29 +45,15 @@ def write_characters(characters):
     df = pd.DataFrame(characters)
     df.to_csv('characters.csv', index=False)
 
-def fetch_character_details(name):
-    wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
-    page_py = wiki_wiki.page(name)
-
-    if not page_py.exists():
-        print(f"Error: Wikipedia page for {name} not found.")
-        return None
-
-    details = {
-        "name": page_py.title,
-        "details": page_py.text[:300]  # Only take the first 300 characters as an example
-    }
-
-    # Extract birth and death dates using refined regular expressions
-    birth_date_match = re.search(r'born[^0-9]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,4})', page_py.text, re.IGNORECASE)
-    death_date_match = re.search(r'died[^0-9]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,4})', page_py.text, re.IGNORECASE)
-
-    if birth_date_match:
-        details["birth_date"] = birth_date_match.group(1)
-    if death_date_match:
-        details["death_date"] = death_date_match.group(1)
-
-    return details
+#%%
+# Example usage for add_character
+def add_character():
+    title = "Add Character"
+    label = "Search and select a character:"
+    callback = lambda name: handle_add_character(name)
+    message_var = tk.StringVar()
+    input_dialog(title, label, callback, message_var)
+#%%
 
 # Function for generic input
 def input_dialog(title, label, callback, message_var):
@@ -98,13 +86,38 @@ def input_dialog(title, label, callback, message_var):
     message_label = tk.Label(input_window, textvariable=message_var)
     message_label.grid(row=3, column=0, columnspan=2)
 
-# Example usage for add_character
-def add_character():
-    title = "Add Character"
-    label = "Search and select a character:"
-    callback = lambda name: handle_add_character(name)
-    message_var = tk.StringVar()
-    input_dialog(title, label, callback, message_var)
+#%%
+def fetch_character_details(name):
+    wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
+    page_py = wiki_wiki.page(name)
+
+    if not page_py.exists():
+        print(f"Error: Wikipedia page for {name} not found.")
+        return None
+
+    # Extract birth and death information from categories
+    birth_date = None
+    death_date = None
+
+    for category in page_py.categories.values():
+        category_name = category.title
+        # Use regular expressions to match patterns in categories
+        birth_match = re.match(r'Category:(\d{4}) births', category_name)
+        death_match = re.match(r'Category:(\d{4}) deaths', category_name)
+
+        if birth_match:
+            birth_date = birth_match.group(1)
+        elif death_match:
+            death_date = death_match.group(1)
+
+    # Create a dictionary with character details
+    character_details = {
+        'name': name,
+        'date_of_birth': birth_date if birth_date else "Not available",
+        'date_of_death': death_date if death_date else "Not available",
+    }
+
+    return character_details
 
 # Callback function for add_character
 def handle_add_character(name):
@@ -117,8 +130,6 @@ def handle_add_character(name):
         print("Character added successfully!\n")
     else:
         print("Character not found on Wikipedia.\n")
-
-# Rest of your code...
 
 #%%
 
@@ -186,11 +197,8 @@ def display_map():
     plt.title("Historical Characters Map")
     plt.show()
 
-# ... (Your existing functions)
+
 #%%
-
-# Other functions...
-
 
 # Function to modify an existing character
 def modify_character():
@@ -199,18 +207,20 @@ def modify_character():
     # Check if the character exists
     character = next((char for char in characters if char["name"] == char_name), None)
     if character:
+        new_name = simpledialog.askstring("Input", "Enter New Name:")
         birth_date = simpledialog.askstring("Input", "Enter New Date of Birth (YYYY/MM/DD):")
         death_date = simpledialog.askstring("Input", "Enter New Date of Death (Leave blank if alive):")
 
         # Update the character in the list
+        character["name"] = new_name
         character["date_of_birth"] = birth_date
         character["date_of_death"] = death_date
         write_characters(characters)  # Update the CSV file
         print("Character modified successfully!\n")
     else:
-        print("Character not found.\n")
+        print("Character not found.\n")# Function to display character information
 
-# Function to display character information
+#%%
 def display_character_info():
     char_name = simpledialog.askstring("Input", "Enter the name of the character to display information:")
 
@@ -247,7 +257,7 @@ def display_character_list():
         print()
 
 
-
+#%%
 def gui():
     root = tk.Tk()
     root.title("Historical Characters Game")
