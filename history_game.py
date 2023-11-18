@@ -1,12 +1,16 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+from datetime import datetime
 import tkinter as tk
 from tkinter import simpledialog
 import matplotlib.dates as mdates
-import numpy as np  # Add this import
-import os
 from dateutil import parser
+import wikipediaapi
+import os
+import re
+import numpy as np
+
+
 
 # Get the current working directory
 current_directory = os.getcwd()
@@ -20,6 +24,9 @@ os.chdir(new_directory)
 updated_directory = os.getcwd()
 print(f"Updated Working Directory: {updated_directory}")
 
+# Wikipedia API client
+wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
+
 def read_characters():
     file_path = 'characters.csv'
     print(f"Checking file existence: {os.path.isfile(file_path)}")
@@ -32,37 +39,52 @@ def read_characters():
 # Initialize characters from the CSV file
 characters = read_characters()
 
-
-
-# Function to write characters to a CSV file
 def write_characters(characters):
     df = pd.DataFrame(characters)
     df.to_csv('characters.csv', index=False)
 
-#%%
+def fetch_character_details(name):
+    wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
+    page_py = wiki_wiki.page(name)
+
+    if not page_py.exists():
+        print(f"Error: Wikipedia page for {name} not found.")
+        return None
+
+    details = {
+        "name": page_py.title,
+        "details": page_py.text[:300]  # Only take the first 300 characters as an example
+    }
+
+    # Extract birth and death dates using refined regular expressions
+    birth_date_match = re.search(r'born[^0-9]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,4})', page_py.text, re.IGNORECASE)
+    death_date_match = re.search(r'died[^0-9]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,4})', page_py.text, re.IGNORECASE)
+
+    if birth_date_match:
+        details["birth_date"] = birth_date_match.group(1)
+    if death_date_match:
+        details["death_date"] = death_date_match.group(1)
+
+    return details
 
 # Function for generic input
-def input_dialog(title, labels, callback, message_var):
+def input_dialog(title, label, callback, message_var):
     input_window = tk.Toplevel()
     input_window.title(title)
 
-    # Entry widgets for input
-    entries = []
-    for row, label in enumerate(labels):
-        tk.Label(input_window, text=label).grid(row=row, column=0)
-        entry = tk.Entry(input_window)
-        entry.grid(row=row, column=1)
-        entries.append(entry)
+    tk.Label(input_window, text=label).grid(row=0, column=0)
+    entry = tk.Entry(input_window)
+    entry.grid(row=0, column=1)
 
     # Callback function for the "OK" button
     def ok_button_callback():
-        values = [entry.get() for entry in entries]
-        callback(*values)
+        value = entry.get()
+        callback(value)
         input_window.destroy()
 
     # "OK" button
     ok_button = tk.Button(input_window, text="OK", command=ok_button_callback)
-    ok_button.grid(row=len(labels), column=0, columnspan=2)
+    ok_button.grid(row=1, column=0, columnspan=2)
 
     # Callback function for the "Cancel" button
     def cancel_button_callback():
@@ -70,30 +92,33 @@ def input_dialog(title, labels, callback, message_var):
 
     # "Cancel" button
     cancel_button = tk.Button(input_window, text="Cancel", command=cancel_button_callback)
-    cancel_button.grid(row=len(labels) + 1, column=0, columnspan=2)
+    cancel_button.grid(row=2, column=0, columnspan=2)
 
     # Message widget
     message_label = tk.Label(input_window, textvariable=message_var)
-    message_label.grid(row=len(labels) + 2, column=0, columnspan=2)
+    message_label.grid(row=3, column=0, columnspan=2)
 
 # Example usage for add_character
 def add_character():
     title = "Add Character"
-    labels = ["Name:", "Date of Birth (YYYY/MM/DD):", "Date of Death (Leave blank if alive):"]
-    callback = lambda name, birth_date, death_date: handle_add_character(name, birth_date, death_date)
+    label = "Search and select a character:"
+    callback = lambda name: handle_add_character(name)
     message_var = tk.StringVar()
-    input_dialog(title, labels, callback, message_var)
+    input_dialog(title, label, callback, message_var)
 
 # Callback function for add_character
-def handle_add_character(name, birth_date, death_date):
-    # Add the new character to the list
-    new_character = {
-        "name": name,
-        "date_of_birth": birth_date,
-        "date_of_death": death_date if death_date != "" else None
-    }
-    characters.append(new_character)
-    write_characters(characters)  # Update the CSV file
+def handle_add_character(name):
+    # Fetch character details from Wikipedia
+    character_details = fetch_character_details(name)
+
+    if character_details:
+        characters.append(character_details)
+        write_characters(characters)  # Update the CSV file
+        print("Character added successfully!\n")
+    else:
+        print("Character not found on Wikipedia.\n")
+
+# Rest of your code...
 
 #%%
 
@@ -223,10 +248,12 @@ def display_character_list():
 
 
 
-# Function to handle GUI
 def gui():
     root = tk.Tk()
     root.title("Historical Characters Game")
+
+    # Set the initial size of the window
+    root.geometry("800x600")  # Set the size as needed
 
     def button_click(choice):
         if choice == 1:
@@ -242,7 +269,7 @@ def gui():
         elif choice == 6:
             display_character_list()
         elif choice == 0:
-            print("Closing the game. Goodbye!\n")
+            print("Closing the history map. Goodbye!\n")
             root.destroy()
         else:
             print("Invalid choice. Please enter a valid option.\n")
