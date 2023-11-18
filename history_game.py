@@ -1,14 +1,53 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Nov 18 21:58:12 2023
+
+@author: alessandrofusta
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import simpledialog, StringVar
 import matplotlib.dates as mdates
 from dateutil import parser
 import wikipediaapi
 import os
 import re
-# import numpy as np
+import numpy as np
+import matplotlib.backends.backend_pdf
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+
+def read_characters():
+    file_path = 'characters.csv'
+    print(f"Checking file existence: {os.path.isfile(file_path)}")
+    try:
+        df = pd.read_csv(file_path, sep=',', parse_dates=['date_of_birth', 'date_of_death'])
+        return df.to_dict('records') if not df.empty else []
+    except FileNotFoundError:
+        return []
+
+
+
+# Initialize characters from the CSV file
+characters = read_characters()
+
+# Create a Tkinter window
+root = tk.Tk()
+root.title("Historical Characters Game")
+
+# Set the initial size of the window
+root.geometry("800x600")  # Set the size as needed
+
+# Define a StringVar to update the message label text
+message_var = StringVar()
+
+# Add a Label to the GUI to display messages
+message_label = tk.Label(root, textvariable=message_var)
+message_label.pack()
 
 #%%
 
@@ -28,15 +67,12 @@ print(f"Updated Working Directory: {updated_directory}")
 # Wikipedia API client
 wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
 
+# Function to set the message text and update the label
+def set_message(message):
+    message_var.set(message)
+    message_label.config(text=message_var.get())
+
 #%%
-def read_characters():
-    file_path = 'characters.csv'
-    print(f"Checking file existence: {os.path.isfile(file_path)}")
-    try:
-        df = pd.read_csv(file_path, sep=',')
-        return df.to_dict('records') if not df.empty else []
-    except FileNotFoundError:
-        return []
 
 # Initialize characters from the CSV file
 characters = read_characters()
@@ -53,7 +89,6 @@ def add_character():
     callback = lambda name: handle_add_character(name)
     message_var = tk.StringVar()
     input_dialog(title, label, callback, message_var)
-#%%
 
 # Function for generic input
 def input_dialog(title, label, callback, message_var):
@@ -131,19 +166,95 @@ def handle_add_character(name):
     else:
         print("Character not found on Wikipedia.\n")
 
-#%%
 
+# Function to modify an existing character
+def modify_character():
+    char_name = simpledialog.askstring("Input", "Enter the name of the character to modify:")
+
+    # Check if the character exists
+    character = next((char for char in characters if char["name"] == char_name), None)
+    if character:
+        new_name = simpledialog.askstring("Input", "Enter New Name:")
+        birth_date = simpledialog.askstring("Input", "Enter New Date of Birth (YYYY/MM/DD):")
+        death_date = simpledialog.askstring("Input", "Enter New Date of Death (Leave blank if alive):")
+
+        # Update the character in the list
+        character["name"] = new_name
+        character["date_of_birth"] = birth_date
+        character["date_of_death"] = death_date
+        write_characters(characters)  # Update the CSV file
+        set_message("Character modified successfully!\n")  # Update the message label
+    else:
+        set_message("Character not found.\n")  # Update the message label
+
+# ...
+
+# Function to display the list of characters
+def display_character_list():
+    if not characters:
+        set_message("No characters in the list.\n")  # Update the message label
+    else:
+        message = "List of Characters:\n"
+        for char in characters:
+            message += f"Name: {char['name']}, Date of Birth: {char['date_of_birth']}, Date of Death: {char['date_of_death']}\n"
+        set_message(message)  # Update the message label
+
+# ...
+
+# Function to remove a character
+def remove_character():
+    char_name = simpledialog.askstring("Input", "Enter the name of the character to remove:")
+
+    # Check if the character exists
+    character_index = next((index for index, char in enumerate(characters) if char["name"] == char_name), None)
+
+    if character_index is not None:
+        del characters[character_index]
+        write_characters(characters)  # Update the CSV file
+        set_message("Character removed successfully!\n")  # Update the message label
+    else:
+        set_message("Character not found.\n")  # Update the message label
+
+# ...
+
+# Function to display character information
+def display_character_info():
+    char_name = simpledialog.askstring("Input", "Enter the name of the character to display information:")
+
+    # Check if the character exists
+    character = next((char for char in characters if char["name"] == char_name), None)
+    if character:
+        message = f"Character Information:\n{pd.DataFrame([character])}\n"
+        set_message(message)  # Update the message label
+    else:
+        set_message("Character not found.\n")  # Update the message label
+
+def parse_date(date_str):
+    try:
+        return pd.to_datetime(date_str, errors='coerce')
+    except ValueError:
+        return None
+
+
+def save_to_pdf(fig, filename):
+    pdf_pages = matplotlib.backends.backend_pdf.PdfPages(filename)
+    pdf_pages.savefig(fig, bbox_inches='tight')
+    pdf_pages.close()
+    
 # Function to display the map
 def display_map():
     df = pd.DataFrame(characters)
-    df["date_of_birth"] = df["date_of_birth"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)  
-    df["date_of_death"] = df["date_of_death"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)
-
-    df = df.sort_values(by="date_of_birth")
+    df["date_of_death"]
     today_date = datetime.today().date()
     formatted_date = today_date.strftime("%Y-%m-%d")
+    df.loc[df["date_of_death"]=="", "date_of_death"] = np.nan
     df["date_of_death"] = df["date_of_death"].fillna(formatted_date)
     
+    df["date_of_birth"] = df["date_of_birth"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)  
+    df["date_of_death"] = df["date_of_death"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)
+    
+    df = df.sort_values(by="date_of_birth")
+
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for _, char in df.iterrows():
@@ -184,7 +295,7 @@ def display_map():
     ax.xaxis.set_major_formatter(date_format)
 
     # Set date locator for x-axis
-    ax.xaxis.set_major_locator(mdates.YearLocator(100))
+    ax.xaxis.set_major_locator(mdates.YearLocator(250))
     
     # Set custom x-axis limits
     min_date = df["date_of_birth"].min()
@@ -195,66 +306,19 @@ def display_map():
     ax.set_yticklabels([])
 
     plt.title("Historical Characters Map")
-    plt.show()
+    
+    # Display the Matplotlib plot in a Tkinter window
+    canvas = FigureCanvasTkAgg(fig, master=root)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+    # Save the plot to a PDF file
+    save_to_pdf(fig, "historical_characters_map.pdf")
+
+    # Start the Tkinter event loop
+    root.mainloop()
 
 
-#%%
-
-# Function to modify an existing character
-def modify_character():
-    char_name = simpledialog.askstring("Input", "Enter the name of the character to modify:")
-
-    # Check if the character exists
-    character = next((char for char in characters if char["name"] == char_name), None)
-    if character:
-        new_name = simpledialog.askstring("Input", "Enter New Name:")
-        birth_date = simpledialog.askstring("Input", "Enter New Date of Birth (YYYY/MM/DD):")
-        death_date = simpledialog.askstring("Input", "Enter New Date of Death (Leave blank if alive):")
-
-        # Update the character in the list
-        character["name"] = new_name
-        character["date_of_birth"] = birth_date
-        character["date_of_death"] = death_date
-        write_characters(characters)  # Update the CSV file
-        print("Character modified successfully!\n")
-    else:
-        print("Character not found.\n")# Function to display character information
-
-#%%
-def display_character_info():
-    char_name = simpledialog.askstring("Input", "Enter the name of the character to display information:")
-
-    # Check if the character exists
-    character = next((char for char in characters if char["name"] == char_name), None)
-    if character:
-        print("Character Information:")
-        print(pd.DataFrame([character]))
-    else:
-        print("Character not found.\n")
-
-# Function to remove a character
-def remove_character():
-    char_name = simpledialog.askstring("Input", "Enter the name of the character to remove:")
-
-    # Check if the character exists
-    character_index = next((index for index, char in enumerate(characters) if char["name"] == char_name), None)
-
-    if character_index is not None:
-        del characters[character_index]
-        write_characters(characters)  # Update the CSV file
-        print("Character removed successfully!\n")
-    else:
-        print("Character not found.\n")
-
-# Function to display the list of characters
-def display_character_list():
-    if not characters:
-        print("No characters in the list.\n")
-    else:
-        print("List of Characters:")
-        for char in characters:
-            print(f"Name: {char['name']}, Date of Birth: {char['date_of_birth']}, Date of Death: {char['date_of_death']}")
-        print()
 
 
 #%%
