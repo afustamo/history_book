@@ -30,8 +30,6 @@ def read_characters():
     except FileNotFoundError:
         return []
 
-
-
 # Initialize characters from the CSV file
 characters = read_characters()
 
@@ -41,6 +39,11 @@ root.title("Historical Characters Game")
 
 # Set the initial size of the window
 root.geometry("800x600")  # Set the size as needed
+
+def create_new_window(title):
+    new_window = tk.Toplevel(root)
+    new_window.title(title)
+    return new_window
 
 # Define a StringVar to update the message label text
 message_var = StringVar()
@@ -238,7 +241,7 @@ def parse_date(date_str):
 
 def save_to_pdf(fig, filename):
     pdf_pages = matplotlib.backends.backend_pdf.PdfPages(filename)
-    pdf_pages.savefig(fig, bbox_inches='tight')
+    pdf_pages.savefig(fig, bbox_inches='tight', dpi=300)
     pdf_pages.close()
     
 # Function to display the map
@@ -291,34 +294,43 @@ def display_map():
         )
 
     # Set date formatter for x-axis
-    date_format = mdates.DateFormatter("%Y-%m-%d")
+    date_format = mdates.DateFormatter("%Y")
     ax.xaxis.set_major_formatter(date_format)
 
     # Set date locator for x-axis
-    ax.xaxis.set_major_locator(mdates.YearLocator(250))
+    ax.xaxis.set_major_locator(mdates.YearLocator(100))
     
     # Set custom x-axis limits
     min_date = df["date_of_birth"].min()
     max_date = df["date_of_death"].max()
     ax.set_xlim(min_date, max_date)
+    
+    # Add horizontal ticks and lines every 100 years
+    years_locator = mdates.YearLocator(base=50)
+    ax.xaxis.set_minor_locator(years_locator)
 
+    # Move x-axis tick labels to the top
+    ax.tick_params(axis='x', which='both', bottom=True, top=True, labelbottom=True, labeltop=True)
+    
+    # Ensure minor grid lines are displayed on top of tick labels
+    ax.xaxis.grid(True, which='major', linestyle='--', linewidth=1, color='gray', alpha=1, zorder = 1)
+    ax.xaxis.grid(True, which='minor', linestyle='--', linewidth=0.5, color='gray', alpha=0.5, zorder = 1)
+    
     # Hide y-axis tick labels
     ax.set_yticklabels([])
 
     plt.title("Historical Characters Map")
     
-    # Display the Matplotlib plot in a Tkinter window
-    canvas = FigureCanvasTkAgg(fig, master=root)
+    # Create a new Toplevel window
+    map_window = create_new_window("Historical Characters Map")
+
+    # Display the Matplotlib plot in the new window
+    canvas = FigureCanvasTkAgg(fig, master=map_window)
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
     # Save the plot to a PDF file
     save_to_pdf(fig, "historical_characters_map.pdf")
-
-    # Start the Tkinter event loop
-    root.mainloop()
-
-
 
 
 #%%
