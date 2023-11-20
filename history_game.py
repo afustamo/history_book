@@ -19,40 +19,8 @@ import re
 import numpy as np
 import matplotlib.backends.backend_pdf
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-
-def read_characters():
-    file_path = 'characters.csv'
-    print(f"Checking file existence: {os.path.isfile(file_path)}")
-    try:
-        df = pd.read_csv(file_path, sep=',', parse_dates=['date_of_birth', 'date_of_death'])
-        return df.to_dict('records') if not df.empty else []
-    except FileNotFoundError:
-        return []
-
-# Initialize characters from the CSV file
-characters = read_characters()
-
-# Create a Tkinter window
-root = tk.Tk()
-root.title("Historical Characters Game")
-
-# Set the initial size of the window
-root.geometry("800x600")  # Set the size as needed
-
-def create_new_window(title):
-    new_window = tk.Toplevel(root)
-    new_window.title(title)
-    return new_window
-
-# Define a StringVar to update the message label text
-message_var = StringVar()
-
-# Add a Label to the GUI to display messages
-message_label = tk.Label(root, textvariable=message_var)
-message_label.pack()
-
-#%%
+from tkinter import scrolledtext
+import sys
 
 # Get the current working directory
 current_directory = os.getcwd()
@@ -66,16 +34,20 @@ os.chdir(new_directory)
 updated_directory = os.getcwd()
 print(f"Updated Working Directory: {updated_directory}")
 
-#%%
-# Wikipedia API client
-wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
+# Define map_window as a global variable
+map_window = None
 
-# Function to set the message text and update the label
-def set_message(message):
-    message_var.set(message)
-    message_label.config(text=message_var.get())
+
 
 #%%
+def read_characters():
+    file_path = 'characters.csv'
+    print(f"Checking file existence: {os.path.isfile(file_path)}")
+    try:
+        df = pd.read_csv(file_path, sep=',', parse_dates=['date_of_birth', 'date_of_death'])
+        return df.to_dict('records') if not df.empty else []
+    except FileNotFoundError:
+        return []
 
 # Initialize characters from the CSV file
 characters = read_characters()
@@ -84,47 +56,10 @@ def write_characters(characters):
     df = pd.DataFrame(characters)
     df.to_csv('characters.csv', index=False)
 
-#%%
-# Example usage for add_character
-def add_character():
-    title = "Add Character"
-    label = "Search and select a character:"
-    callback = lambda name: handle_add_character(name)
-    message_var = tk.StringVar()
-    input_dialog(title, label, callback, message_var)
+# Wikipedia API client
+wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
 
-# Function for generic input
-def input_dialog(title, label, callback, message_var):
-    input_window = tk.Toplevel()
-    input_window.title(title)
 
-    tk.Label(input_window, text=label).grid(row=0, column=0)
-    entry = tk.Entry(input_window)
-    entry.grid(row=0, column=1)
-
-    # Callback function for the "OK" button
-    def ok_button_callback():
-        value = entry.get()
-        callback(value)
-        input_window.destroy()
-
-    # "OK" button
-    ok_button = tk.Button(input_window, text="OK", command=ok_button_callback)
-    ok_button.grid(row=1, column=0, columnspan=2)
-
-    # Callback function for the "Cancel" button
-    def cancel_button_callback():
-        input_window.destroy()
-
-    # "Cancel" button
-    cancel_button = tk.Button(input_window, text="Cancel", command=cancel_button_callback)
-    cancel_button.grid(row=2, column=0, columnspan=2)
-
-    # Message widget
-    message_label = tk.Label(input_window, textvariable=message_var)
-    message_label.grid(row=3, column=0, columnspan=2)
-
-#%%
 def fetch_character_details(name):
     wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
     page_py = wiki_wiki.page(name)
@@ -169,7 +104,6 @@ def handle_add_character(name):
     else:
         print("Character not found on Wikipedia.\n")
 
-
 # Function to modify an existing character
 def modify_character():
     char_name = simpledialog.askstring("Input", "Enter the name of the character to modify:")
@@ -189,21 +123,7 @@ def modify_character():
         set_message("Character modified successfully!\n")  # Update the message label
     else:
         set_message("Character not found.\n")  # Update the message label
-
-# ...
-
-# Function to display the list of characters
-def display_character_list():
-    if not characters:
-        set_message("No characters in the list.\n")  # Update the message label
-    else:
-        message = "List of Characters:\n"
-        for char in characters:
-            message += f"Name: {char['name']}, Date of Birth: {char['date_of_birth']}, Date of Death: {char['date_of_death']}\n"
-        set_message(message)  # Update the message label
-
-# ...
-
+        
 # Function to remove a character
 def remove_character():
     char_name = simpledialog.askstring("Input", "Enter the name of the character to remove:")
@@ -218,7 +138,37 @@ def remove_character():
     else:
         set_message("Character not found.\n")  # Update the message label
 
-# ...
+#%%
+def create_new_window(title):
+    new_window = tk.Toplevel(root)
+    new_window.title(title)
+    return new_window
+
+#%% displaying
+def display_character_list():
+    global map_window
+    if not characters:
+        set_message("No characters in the list.\n")  # Update the message label
+    else:
+        message = "List of Characters:\n"
+        for char in characters:
+            message += f"Name: {char['name']}, Date of Birth: {char['date_of_birth']}, Date of Death: {char['date_of_death']}\n"
+        # set_message(message)  # Update the message label
+
+        # Create a new Toplevel window for displaying the list with a scrollbar
+        map_window = create_new_window("Character List")
+
+        # Create a scrolled text widget
+        scroll_text = scrolledtext.ScrolledText(map_window, wrap=tk.WORD, width=40, height=20)
+        scroll_text.pack(expand=True, fill='both')
+
+        # Insert the character list into the scrolled text widget
+        scroll_text.insert(tk.END, message)
+        
+        # Destroy the Toplevel window
+        if map_window:
+            map_window.destroy()
+
 
 # Function to display character information
 def display_character_info():
@@ -239,13 +189,14 @@ def parse_date(date_str):
         return None
 
 
+# Function to save and display the map
 def save_to_pdf(fig, filename):
     pdf_pages = matplotlib.backends.backend_pdf.PdfPages(filename)
     pdf_pages.savefig(fig, bbox_inches='tight', dpi=300)
     pdf_pages.close()
     
-# Function to display the map
 def display_map():
+    global map_window
     df = pd.DataFrame(characters)
     df["date_of_death"]
     today_date = datetime.today().date()
@@ -331,11 +282,64 @@ def display_map():
 
     # Save the plot to a PDF file
     save_to_pdf(fig, "historical_characters_map.pdf")
+    
+    # Destroy the Toplevel window
+    if map_window:
+        map_window.destroy()
 
 
+# Create a Tkinter window
+root = tk.Tk()
+root.title("Historical Characters Game")
+
+# Set the initial size of the window
+root.geometry("800x600")  # Set the size as needed
+
+# Define a StringVar to update the message label text
+message_var = StringVar()
+
+# Add a Label to the GUI to display messages
+message_label = tk.Label(root, textvariable=message_var)
+message_label.pack()
+
+# Function for generic input
+def input_dialog(title, label, callback, message_var):
+    input_window = tk.Toplevel()
+    input_window.title(title)
+
+    tk.Label(input_window, text=label).grid(row=0, column=0)
+    entry = tk.Entry(input_window)
+    entry.grid(row=0, column=1)
+
+    # Callback function for the "OK" button
+    def ok_button_callback():
+        value = entry.get()
+        callback(value)
+        input_window.destroy()
+
+    # "OK" button
+    ok_button = tk.Button(input_window, text="OK", command=ok_button_callback)
+    ok_button.grid(row=1, column=0, columnspan=2)
+
+    # Callback function for the "Cancel" button
+    def cancel_button_callback():
+        input_window.destroy()
+
+    # "Cancel" button
+    cancel_button = tk.Button(input_window, text="Cancel", command=cancel_button_callback)
+    cancel_button.grid(row=2, column=0, columnspan=2)
+
+    # Message widget
+    message_label = tk.Label(input_window, textvariable=message_var)
+    message_label.grid(row=3, column=0, columnspan=2)
+    
+def set_message(message):
+    message_var.set(message)
+    message_label.config(text=message_var.get())
+    
 #%%
-def gui():
-    root = tk.Tk()
+def gui(root):
+    #root = tk.Tk()
     root.title("Historical Characters Game")
 
     # Set the initial size of the window
@@ -357,6 +361,7 @@ def gui():
         elif choice == 0:
             print("Closing the history map. Goodbye!\n")
             root.destroy()
+            sys.exit()
         else:
             print("Invalid choice. Please enter a valid option.\n")
 
@@ -373,4 +378,9 @@ def gui():
     root.mainloop()
 
 if __name__ == "__main__":
-    gui()
+    # Call the gui function with the root window as a parameter
+    gui(root)
+
+    # Start the Tkinter event loop
+    root.mainloop()
+
