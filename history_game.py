@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import simpledialog, StringVar, messagebox
+from tkinter import simpledialog, StringVar
 from tkinter import scrolledtext
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,13 +10,10 @@ import os
 import re
 import numpy as np
 import matplotlib.backends.backend_pdf
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
-import sys
-
-# Global variables
-characters = []
-map_window = None
+import matplotlib
 
 # Create a Tkinter window
 root = tk.Tk()
@@ -187,15 +184,13 @@ def remove_character():
     else:
         set_message("Character not found.\n")  # Update the message label
 
-# Display character list
 def display_character_list():
     if not characters:
-        set_message("No characters in the list.\n")  # Update the message label
+        set_message("No characters in the list.\n")  # Update the message label in the main window
     else:
         message = "List of Characters:\n"
         for char in characters:
             message += f"Name: {char['name']}, Date of Birth: {char['date_of_birth']}, Date of Death: {char['date_of_death']}\n"
-        set_message(message)  # Update the message label
 
         # Create a new Toplevel window for displaying the list with a scrollbar
         list_window = create_new_window("Character List")
@@ -207,6 +202,8 @@ def display_character_list():
         # Insert the character list into the scrolled text widget
         scroll_text.insert(tk.END, message)
 
+# Remove the following line from the display_character_list function
+# set_message(message)  # Update the message label in the main window
 
 # Function to display character information
 def display_character_info():
@@ -227,8 +224,8 @@ def save_to_pdf(fig, filename):
     pdf_pages.close()
 
 
-# Display historical characters map
 def display_map():
+    map_window = create_new_window("Historical Characters Map")
     df = pd.DataFrame(characters)
     df["date_of_death"]
     today_date = datetime.today().date()
@@ -236,11 +233,11 @@ def display_map():
     df.loc[df["date_of_death"]=="", "date_of_death"] = np.nan
     df["date_of_death"] = df["date_of_death"].fillna(formatted_date)
 
-    df["date_of_birth"] = df["date_of_birth"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)  
-    df["date_of_death"] = df["date_of_death"].apply(lambda x: parser.parse(x) if pd.notnull(x) else x)
+    df["date_of_birth"] = df["date_of_birth"].apply(lambda x: parser.parse(x) if pd.notnull(x) and x != "Not available" else None)  
+    df["date_of_death"] = df["date_of_death"].apply(lambda x: parser.parse(x) if pd.notnull(x) and x != "Not available" else None)
 
     df = df.sort_values(by="date_of_birth")
-
+    
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for _, char in df.iterrows():
@@ -284,8 +281,8 @@ def display_map():
     ax.xaxis.set_major_locator(mdates.YearLocator(100))
     
     # Set custom x-axis limits
-    min_date = df["date_of_birth"].min()
-    max_date = df["date_of_death"].max()
+    min_date = df["date_of_birth"].dropna().min()
+    max_date = df["date_of_death"].dropna().max()
     ax.set_xlim(min_date, max_date)
     
     # Add horizontal ticks and lines every 100 years
@@ -301,23 +298,37 @@ def display_map():
     
     # Hide y-axis tick labels
     ax.set_yticklabels([])
-
+    
     plt.title("Historical Characters Map")
     
-    # Create a new Toplevel window
     map_window = create_new_window("Historical Characters Map")
-
-    # Display the Matplotlib plot in the new window
+    
+    # Display the Matplotlib plot in the existing window
     canvas = FigureCanvasTkAgg(fig, master=map_window)
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
+    # Add a Matplotlib navigation toolbar
+    toolbar = NavigationToolbar2Tk(canvas, map_window)
+    toolbar.update()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+    # Enable interactive zooming
+    def on_key(event):
+        if event.key == 'Z':
+            toolbar.zoom()
+        elif event.key == 'p':
+            toolbar.pan()
+
+    canvas.mpl_connect('key_press_event', on_key)
+
     # Save the plot to a PDF file
-    save_to_pdf(fig, "historical_characters_map.pdf")
+    # save_to_pdf(fig, "historical_characters_map.pdf")
+
+
 
 # GUI function
 def gui():
-    root = tk.Tk()
     root.title("Historical Characters Game")
 
     # Set the initial size of the window
