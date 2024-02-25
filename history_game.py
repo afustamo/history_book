@@ -323,7 +323,7 @@ def display_map():
     canvas.mpl_connect('key_press_event', on_key)
 
     # Save the plot to a PDF file
-    # save_to_pdf(fig, "historical_characters_map.pdf")
+    save_to_pdf(fig, "historical_characters_map.pdf")
 
 
 
