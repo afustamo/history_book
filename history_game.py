@@ -107,7 +107,7 @@ def add_character():
 wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
 
 def fetch_character_details(name):
-    wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","en")
+    wiki_wiki = wikipediaapi.Wikipedia("history_book (alessandro.fusta@outlook.it)","it")
     page_py = wiki_wiki.page(name)
 
     if not page_py.exists():
